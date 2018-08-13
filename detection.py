@@ -49,37 +49,6 @@ def get_model():
     conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(relu)
     batchnorm = BatchNormalization()(conv)
     relu = Activation('relu')(batchnorm)
-    maxpool = MaxPooling2D()(relu)
-    
-    conv = Conv2D(filters=32, kernel_size=(3,3), padding='same')(maxpool)
-    batchnorm = BatchNormalization()(conv)
-    relu = Activation('relu')(batchnorm)
-    
-    flatten = Flatten()(relu)
-    predictions = Dense(coords_size, activation='tanh')(flatten)
-    
-    model = Model(inputs=inputs, outputs=predictions)
-    model.compile(optimizer='rmsprop', loss='mean_squared_error')
-    return model
-
-def first_model():
-    inputs = Input(shape=(im_size, im_size, 1))
-    conv = Conv2D(filters=256, kernel_size=(3,3), padding='same')(inputs)
-    batchnorm = BatchNormalization()(conv)
-    relu = Activation('relu')(batchnorm)
-    
-    conv = Conv2D(filters=128, kernel_size=(3,3), padding='same')(relu)
-    batchnorm = BatchNormalization()(conv)
-    relu = Activation('relu')(batchnorm)
-    maxpool = MaxPooling2D()(relu)
-    
-    conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(maxpool)
-    batchnorm = BatchNormalization()(conv)
-    relu = Activation('relu')(batchnorm)
-    
-    conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(relu)
-    batchnorm = BatchNormalization()(conv)
-    relu = Activation('relu')(batchnorm)
     
     conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(relu)
     batchnorm = BatchNormalization()(conv)
@@ -185,13 +154,12 @@ def detect(model, test_img_dir):
             print('Image: ', i+1, end='\r')
     points = model.predict(data, 100, 1)
     ans = {}
-    points *= 100
     for i in range(len(points)):
         for j in range(1, coords_size, 2):
-            points[i][j] *= sizes[i][1][0]/im_size
+            points[i][j] *= sizes[i][1][0]
             points[i][j] = int(points[i][j])
         for j in range(0, coords_size, 2):
-            points[i][j] *= sizes[i][1][1]/im_size
+            points[i][j] *= sizes[i][1][1]
             points[i][j] = int(points[i][j])
         ans[sizes[i][0]] = points[i]
     return ans
