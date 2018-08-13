@@ -28,10 +28,10 @@ from keras.utils import Sequence
 from keras.layers import (Input, concatenate, Conv2D, MaxPooling2D, 
                           UpSampling2D, Convolution2D, ZeroPadding2D, 
                           BatchNormalization, Activation, concatenate, 
-                          Flatten, Dense, merge)
+                          Flatten, Dense, merge, Dropout)
 from keras.optimizers import rmsprop
 
-def get_model():
+def first_model():
     inputs = Input(shape=(im_size, im_size, 1))
     conv = Conv2D(filters=256, kernel_size=(3,3), padding='same')(inputs)
     batchnorm = BatchNormalization()(conv)
@@ -69,6 +69,57 @@ def get_model():
     relu = Activation('relu')(batchnorm)
     
     flatten = Flatten()(relu)
+    predictions = Dense(coords_size, activation=None)(flatten)
+    
+    model = Model(inputs=inputs, outputs=predictions)
+    model.compile(optimizer='rmsprop', loss='mean_squared_error')
+    return model
+
+
+def get_model():
+    inputs = Input(shape=(im_size, im_size, 1))
+    conv = Conv2D(filters=16, kernel_size=(3,3), padding='same')(inputs)
+    batchnorm = BatchNormalization()(conv)
+    relu = Activation('relu')(batchnorm)
+    
+    conv = Conv2D(filters=32, kernel_size=(3,3), padding='same')(relu)
+    batchnorm = BatchNormalization()(conv)
+    relu = Activation('relu')(batchnorm)
+    
+    conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(relu)
+    batchnorm = BatchNormalization()(conv)
+    relu = Activation('relu')(batchnorm)
+    
+    dropout = Dropout(0.2)(relu)
+    
+    conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(dropout)
+    batchnorm = BatchNormalization()(conv)
+    relu = Activation('relu')(batchnorm)
+    maxpool = MaxPooling2D()(relu)
+    
+    conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(maxpool)
+    batchnorm = BatchNormalization()(conv)
+    relu = Activation('relu')(batchnorm)
+    
+    dropout = Dropout(0.5)(relu)
+    
+    conv = Conv2D(filters=128, kernel_size=(3,3), padding='same')(dropout)
+    batchnorm = BatchNormalization()(conv)
+    relu = Activation('relu')(batchnorm)
+    
+    conv = Conv2D(filters=128, kernel_size=(3,3), padding='same')(relu)
+    batchnorm = BatchNormalization()(conv)
+    relu = Activation('relu')(batchnorm)
+    maxpool = MaxPooling2D()(relu)
+    
+    dropout = Dropout(0.2)(maxpool)
+    
+    conv = Conv2D(filters=256, kernel_size=(3,3), padding='same')(dropout)
+    batchnorm = BatchNormalization()(conv)
+    relu = Activation('relu')(batchnorm)
+    maxpool = MaxPooling2D()(relu)
+    
+    flatten = Flatten()(maxpool)
     predictions = Dense(coords_size, activation=None)(flatten)
     
     model = Model(inputs=inputs, outputs=predictions)
