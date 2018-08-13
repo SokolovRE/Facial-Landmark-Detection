@@ -69,7 +69,7 @@ def get_model():
     relu = Activation('relu')(batchnorm)
     
     flatten = Flatten()(relu)
-    predictions = Dense(coords_size, activation='tanh')(flatten)
+    predictions = Dense(coords_size, activation=None)(flatten)
     
     model = Model(inputs=inputs, outputs=predictions)
     model.compile(optimizer='rmsprop', loss='mean_squared_error')
@@ -101,7 +101,6 @@ def train_detector(
                 train_Y[i][j] *= im_size/img.shape[0]
             for j in range(0, coords_size, 2):
                 train_Y[i][j] *= im_size/img.shape[1]
-            train_Y[i] = (train_Y[i] / 100) 
             img = zoom(img, [im_size/img.shape[0], im_size/img.shape[1]])
             img = (img / 255) 
             train_X[i,:,:,0] = img
@@ -156,10 +155,10 @@ def detect(model, test_img_dir):
     ans = {}
     for i in range(len(points)):
         for j in range(1, coords_size, 2):
-            points[i][j] *= sizes[i][1][0]
+            points[i][j] *= sizes[i][1][0]/im_size
             points[i][j] = int(points[i][j])
         for j in range(0, coords_size, 2):
-            points[i][j] *= sizes[i][1][1]
+            points[i][j] *= sizes[i][1][1]/im_size
             points[i][j] = int(points[i][j])
         ans[sizes[i][0]] = points[i]
     return ans
