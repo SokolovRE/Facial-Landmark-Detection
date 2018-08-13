@@ -1,9 +1,4 @@
 
-# coding: utf-8
-
-# In[1]:
-
-
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -11,10 +6,6 @@ import matplotlib.pyplot as plt
 train_dir = '00_input/train'
 im_size = 100
 coords_size = 28
-
-
-# In[2]:
-
 
 def read_csv(filename):
     from numpy import array
@@ -26,11 +17,6 @@ def read_csv(filename):
             coords = array([float(x) for x in parts[1:]], dtype='float64')
             res[parts[0]] = coords
     return res
-
-train_gt = read_csv(train_dir+'/gt.csv')
-
-
-# In[3]:
 
 
 from keras.models import Model
@@ -121,9 +107,6 @@ def first_model():
     return model
 
 
-# In[4]:
-
-
 def train_detector(
         train_gt, 
         train_img_dir, 
@@ -131,12 +114,18 @@ def train_detector(
         model_func=None, 
         model_name='{epoch:d}_{val_loss:.4f}.hdf5'):
     
-    def parse(train_gt, train_img_dir, info=False):
+    def parse(train_gt, train_img_dir, info=False, fast_train=False):
         from skimage.data import imread
         from scipy.ndimage import zoom
-        train_X = np.zeros((len(train_gt), im_size, im_size, 1))
-        train_Y = np.zeros((len(train_gt), coords_size))
+        if fast_train:
+            train_X = np.zeros((500, im_size, im_size, 1))
+            train_Y = np.zeros((500, coords_size))
+        else:
+            train_X = np.zeros((len(train_gt), im_size, im_size, 1))
+            train_Y = np.zeros((len(train_gt), coords_size))
         for i, img_name in enumerate(train_gt):
+            if i == 500 and fast_train:
+                break
             img = imread(train_img_dir+'/'+img_name, as_grey=True)
             train_Y[i] = train_gt[img_name]
             for j in range(1, coords_size, 2):
@@ -152,7 +141,7 @@ def train_detector(
                 print('Image: ', i+1, end='\r')
         return train_X, train_Y
     
-    train_X, train_Y = parse(train_gt, train_img_dir, True)
+    train_X, train_Y = parse(train_gt, train_img_dir, True, fast_train)
     if model_func == None:
         model = get_model()
     else:
@@ -168,25 +157,14 @@ def train_detector(
         save_weights_only=False)
     if fast_train:
         epochs = 1
-        model.fit(train_X, train_Y, epochs=epochs, batch_size=100, validation_split=(1/6))
+        model.fit(train_X, train_Y, epochs=epochs, batch_size=100)
     else:
         epochs = 20
         try:
             model.fit(train_X, train_Y, epochs=epochs, batch_size=100, callbacks=[checkpoint], validation_split=(1/6))
-            #model.save('facepoints_model.hdf5')
         except KeyboardInterrupt:
-            #model.save('facepoints_model.hdf5')
             print('\nTraining interrupted')
     return model
-
-
-# In[6]:
-
-
-train_detector(train_gt, train_dir+'/images', False, first_model, 'first')
-
-
-# In[5]:
 
 
 def detect(model, test_img_dir):
@@ -217,14 +195,3 @@ def detect(model, test_img_dir):
             points[i][j] = int(points[i][j])
         ans[sizes[i][0]] = points[i]
     return ans
-
-from keras.models import load_model
-model = load_model('first_10_0.0039.hdf5')
-ans_dict = detect(model, '00_input/test/images')
-
-
-# In[6]:
-
-
-ans_dict
-
