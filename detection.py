@@ -178,7 +178,7 @@ def train_detector(
         epochs = 1
         model.fit(train_X, train_Y, epochs=epochs, batch_size=100)
     else:
-        epochs = 20
+        epochs = 100
         try:
             model.fit(train_X, train_Y, epochs=epochs, batch_size=100, callbacks=[checkpoint], validation_split=(1/6))
         except KeyboardInterrupt:
