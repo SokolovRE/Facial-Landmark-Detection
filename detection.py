@@ -53,18 +53,74 @@ def get_model():
     relu = Activation('relu')(batchnorm)
     maxpool = MaxPooling2D()(relu)
     
-    conv = Conv2D(filters=256, kernel_size=(3,3), padding='same')(maxpool)
+    dropout = Dropout(0.5)(maxpool)
+    
+    conv = Conv2D(filters=256, kernel_size=(3,3), padding='same')(dropout)
     batchnorm = BatchNormalization()(conv)
     relu = Activation('relu')(batchnorm)
     
-    dropout = Dropout(0.5)(relu)
-    
-    flatten = Flatten()(dropout)
+    flatten = Flatten()(relu)
     predictions = Dense(coords_size, activation=None)(flatten)
     
     model = Model(inputs=inputs, outputs=predictions)
     model.compile(optimizer='adam', loss='mean_squared_error')
     return model
+
+
+def parse(train_img_dir, train_gt=None, fast_train=False):
+    from skimage.data import imread
+    from scipy.ndimage import zoom
+    from os import listdir
+    img_list = listdir(train_img_dir)
+    if fast_train:
+        data_len = fast_len
+    else:
+        data_len = len(img_list)
+    train_X = np.zeros((data_len, im_size, im_size, 1))
+    img_M = np.zeros((im_size, im_size))
+    img_D = np.zeros((im_size, im_size))
+    if train_gt != None:
+        train_Y = np.zeros((data_len, coords_size))
+        gt_M = np.zeros(coords_size)
+        gt_D = np.zeros(coords_size)
+    else:
+        sizes = []
+    for i, img_name in enumerate(img_list):
+        if i == fast_len and fast_train:
+            break
+        img = imread(train_img_dir+'/'+img_name, as_grey=True)
+        if train_gt != None:
+            train_Y[i] = train_gt[img_name]
+            for j in range(1, coords_size, 2):
+                train_Y[i][j] *= im_size/img.shape[0]
+            for j in range(0, coords_size, 2):
+                train_Y[i][j] *= im_size/img.shape[1]
+            gt_M += train_Y[i]
+            gt_D += train_Y[i]**2
+        else:
+            sizes.append([img_name, img.shape])
+        img = zoom(img, [im_size/img.shape[0], im_size/img.shape[1]])
+        img_M += img
+        img_D += img**2
+        train_X[i,:,:,0] = img
+        del(img)
+        if (i+1)%100 == 0:
+            print('Parsing image: ', i+1, end='\r')
+        if train_gt != None:
+            gt_M /= data_len
+            gt_D /= data_len
+            gt_D -= gt_M**2
+            train_Y -= gt_M
+            train_Y /= gt_D
+        img_M /= data_len
+        img_D /= data_len
+        img_D -= img_M**2
+        train_X[:,:,:,0] -= img_M
+        train_X[:,:,:,0] /= img_D
+    if train_gt != None:
+        return train_X, train_Y
+    else:
+        return train_X, gt_M, gt_D, sizes
 
 
 def train_detector(
@@ -74,46 +130,7 @@ def train_detector(
         model_func=None, 
         model_name='{epoch:d}_{val_loss:.4f}.hdf5'):
     
-    def parse(train_gt, train_img_dir, info=False, fast_train=False):
-        from skimage.data import imread
-        from scipy.ndimage import zoom
-        if fast_train:
-            train_X = np.zeros((fast_len, im_size, im_size, 1))
-            train_Y = np.zeros((fast_len, coords_size))
-        else:
-            train_X = np.zeros((len(train_gt), im_size, im_size, 1))
-            train_Y = np.zeros((len(train_gt), coords_size))
-        M = np.zeros((im_size, im_size))
-        D = np.zeros((im_size, im_size))
-        for i, img_name in enumerate(train_gt):
-            if i == fast_len and fast_train:
-                break
-            img = imread(train_img_dir+'/'+img_name, as_grey=True)
-            train_Y[i] = train_gt[img_name]
-            for j in range(1, coords_size, 2):
-                train_Y[i][j] *= im_size/img.shape[0]
-            for j in range(0, coords_size, 2):
-                train_Y[i][j] *= im_size/img.shape[1]
-            img = zoom(img, [im_size/img.shape[0], im_size/img.shape[1]])
-            M += img
-            D += img*img
-            train_X[i,:,:,0] = img
-            del(img)
-            if info and (i+1)%100 == 0:
-                print('Image: ', i+1, end='\r')
-        if fast_train:
-            M /= fast_len
-            D /= fast_len
-            D -= M*M
-        else:
-            M /= len(train_gt)
-            D /= len(train_gt)
-            D -= M*M
-        train_X[:,:,:,0] -= M
-        train_X[:,:,:,0] /= D
-        return train_X, train_Y
-    
-    train_X, train_Y = parse(train_gt, train_img_dir, True, fast_train)
+    train_X, train_Y = parse(train_img_dir, train_gt, fast_train)
     if model_func == None:
         model = get_model()
     else:
@@ -136,35 +153,18 @@ def train_detector(
             model.fit(train_X, train_Y, epochs=epochs, batch_size=100, callbacks=[checkpoint], validation_split=(1/6))
         except KeyboardInterrupt:
             print('\nTraining interrupted')
-    return model
+        return model
 
 
 def detect(model, test_img_dir):
     from os import listdir
     from skimage.data import imread
     from scipy.ndimage import zoom
-    img_list = listdir(test_img_dir)
-    data = np.zeros((len(img_list), im_size, im_size, 1))
-    sizes = []
-    M = np.zeros((im_size, im_size))
-    D = np.zeros((im_size, im_size))
-    for i, img_name in enumerate(img_list):
-        img = imread(test_img_dir+'/'+img_name, as_grey=True)
-        sizes.append([img_name, img.shape])
-        img = zoom(img, [im_size/img.shape[0], im_size/img.shape[1]])
-        M += img
-        D += img*img
-        data[i,:,:,0] = img
-        del(img)
-        if(i+1)%100 == 0:
-            print('Image: ', i+1, end='\r')
-    M /= len(img_list)
-    D /= len(img_list)
-    D -= M*M
-    data[:,:,:,0] -= M
-    data[:,:,:,0] /= D
+    data, gt_M, gt_D, sizes = parse(test_img_dir)
     points = model.predict(data, 100, 1)
     ans = {}
+    points *= gt_D
+    points += gt_M
     for i in range(len(points)):
         for j in range(1, coords_size, 2):
             points[i][j] *= sizes[i][1][0]/im_size
