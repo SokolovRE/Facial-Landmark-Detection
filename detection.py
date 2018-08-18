@@ -4,9 +4,8 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 
 train_dir = '00_input/train'
-im_size = 100
+im_size = 160
 coords_size = 28
-fast_len = 500
 
 def read_csv(filename):
     from numpy import array
@@ -30,15 +29,15 @@ from keras.layers import (Input, concatenate, Conv2D, MaxPooling2D,
                           UpSampling2D, Convolution2D, ZeroPadding2D, 
                           BatchNormalization, Activation, concatenate, 
                           Flatten, Dense, merge, Dropout)
-from keras.optimizers import rmsprop
+from keras.optimizers import Adam
 
-def get_model():
+def first_model():
     inputs = Input(shape=(im_size, im_size, 1))
-    conv = Conv2D(filters=16, kernel_size=(3,3), padding='same')(inputs)
+    conv = Conv2D(filters=256, kernel_size=(3,3), padding='same')(inputs)
     batchnorm = BatchNormalization()(conv)
     relu = Activation('relu')(batchnorm)
     
-    conv = Conv2D(filters=32, kernel_size=(3,3), padding='same')(relu)
+    conv = Conv2D(filters=128, kernel_size=(3,3), padding='same')(relu)
     batchnorm = BatchNormalization()(conv)
     relu = Activation('relu')(batchnorm)
     maxpool = MaxPooling2D()(relu)
@@ -46,16 +45,26 @@ def get_model():
     conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(maxpool)
     batchnorm = BatchNormalization()(conv)
     relu = Activation('relu')(batchnorm)
-    maxpool = MaxPooling2D()(relu)
     
-    conv = Conv2D(filters=128, kernel_size=(3,3), padding='same')(maxpool)
+    conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(relu)
+    batchnorm = BatchNormalization()(conv)
+    relu = Activation('relu')(batchnorm)
+    
+    conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(relu)
     batchnorm = BatchNormalization()(conv)
     relu = Activation('relu')(batchnorm)
     maxpool = MaxPooling2D()(relu)
     
-    dropout = Dropout(0.5)(maxpool)
+    conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(maxpool)
+    batchnorm = BatchNormalization()(conv)
+    relu = Activation('relu')(batchnorm)
     
-    conv = Conv2D(filters=256, kernel_size=(3,3), padding='same')(dropout)
+    conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(relu)
+    batchnorm = BatchNormalization()(conv)
+    relu = Activation('relu')(batchnorm)
+    maxpool = MaxPooling2D()(relu)
+    
+    conv = Conv2D(filters=32, kernel_size=(3,3), padding='same')(maxpool)
     batchnorm = BatchNormalization()(conv)
     relu = Activation('relu')(batchnorm)
     
@@ -63,66 +72,65 @@ def get_model():
     predictions = Dense(coords_size, activation=None)(flatten)
     
     model = Model(inputs=inputs, outputs=predictions)
-    model.compile(optimizer='adam', loss='mean_squared_error')
+    model.compile(optimizer='rmsprop', loss='mean_squared_error')
     return model
 
 
-def parse(train_img_dir, train_gt=None, fast_train=False):
-    from skimage.data import imread
-    from scipy.ndimage import zoom
-    from os import listdir
-    img_list = listdir(train_img_dir)
-    if fast_train:
-        data_len = fast_len
-    else:
-        data_len = len(img_list)
-    train_X = np.zeros((data_len, im_size, im_size, 1))
-    img_M = np.zeros((im_size, im_size))
-    img_D = np.zeros((im_size, im_size))
-    if train_gt != None:
-        train_Y = np.zeros((data_len, coords_size))
-        global gt_M 
-        gt_M = np.zeros(coords_size) 
-        global gt_D 
-        gt_D = np.zeros(coords_size)
-    else:
-        sizes = []
-    for i, img_name in enumerate(img_list):
-        if i == fast_len and fast_train:
-            break
-        img = imread(train_img_dir+'/'+img_name, as_grey=True)
-        if train_gt != None:
-            train_Y[i] = train_gt[img_name]
-            for j in range(1, coords_size, 2):
-                train_Y[i][j] *= im_size/img.shape[0]
-            for j in range(0, coords_size, 2):
-                train_Y[i][j] *= im_size/img.shape[1]
-            gt_M += train_Y[i]
-            gt_D += train_Y[i]**2
-        else:
-            sizes.append([img_name, img.shape])
-        img = zoom(img, [im_size/img.shape[0], im_size/img.shape[1]])
-        img_M += img
-        img_D += img**2
-        train_X[i,:,:,0] = img
-        del(img)
-        if (i+1)%10 == 0:
-            print('Parsing image: ', i+1, end='\r')
-    if train_gt != None:
-        gt_M /= data_len
-        gt_D /= data_len
-        gt_D -= gt_M**2
-        train_Y -= gt_M
-        train_Y /= gt_D
-    img_M /= data_len
-    img_D /= data_len
-    img_D -= img_M**2
-    train_X[:,:,:,0] -= img_M
-    train_X[:,:,:,0] /= img_D
-    if train_gt != None:
-        return train_X, train_Y
-    else:
-        return train_X, gt_M, gt_D, sizes
+def get_model():
+    inputs = Input(shape=(im_size, im_size, 1))
+    dropout = Dropout(0.2)(inputs)
+    conv = Conv2D(filters=16, kernel_size=(3,3), padding='same')(dropout)
+    relu = Activation('relu')(conv)
+    batchnorm = BatchNormalization()(relu)
+    
+    conv = Conv2D(filters=32, kernel_size=(3,3), padding='same')(batchnorm)
+    relu = Activation('relu')(conv)
+    batchnorm = BatchNormalization()(relu)
+    maxpool = MaxPooling2D()(batchnorm)
+    
+    conv = Conv2D(filters=48, kernel_size=(3,3), padding='same')(maxpool)
+    relu = Activation('relu')(conv)
+    batchnorm = BatchNormalization()(relu)
+    
+    dropout = Dropout(0.3)(batchnorm)
+    
+    conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(dropout)
+    relu = Activation('relu')(conv)
+    batchnorm = BatchNormalization()(relu)
+    maxpool = MaxPooling2D()(batchnorm)
+    
+    conv = Conv2D(filters=96, kernel_size=(3,3), padding='same')(maxpool)
+    relu = Activation('relu')(conv)
+    batchnorm = BatchNormalization()(relu)
+    
+    conv = Conv2D(filters=128, kernel_size=(3,3), padding='same')(batchnorm)
+    relu = Activation('relu')(conv)
+    batchnorm = BatchNormalization()(relu)
+    maxpool = MaxPooling2D()(batchnorm)
+    
+    dropout = Dropout(0.3)(maxpool)
+    
+    conv = Conv2D(filters=192, kernel_size=(3,3), padding='same')(dropout)
+    relu = Activation('relu')(conv)
+    batchnorm = BatchNormalization()(relu)
+    
+    conv = Conv2D(filters=256, kernel_size=(3,3), padding='same')(batchnorm)
+    relu = Activation('relu')(conv)
+    batchnorm = BatchNormalization()(relu)
+    maxpool = MaxPooling2D()(batchnorm)
+    
+    conv = Conv2D(filters=384, kernel_size=(3,3), padding='same')(maxpool)
+    relu = Activation('relu')(conv)
+    batchnorm = BatchNormalization()(relu)
+    
+    dropout = Dropout(0.5)(batchnorm)
+    
+    flatten = Flatten()(dropout)
+    predictions = Dense(coords_size, activation=None)(flatten)
+    
+    model = Model(inputs=inputs, outputs=predictions)
+    model.compile(optimizer=Adam(0.001, decay=0.00002), loss='mean_squared_error')
+    return model
 
 
 def train_detector(
@@ -132,7 +140,33 @@ def train_detector(
         model_func=None, 
         model_name='{epoch:d}_{val_loss:.4f}.hdf5'):
     
-    train_X, train_Y = parse(train_img_dir, train_gt, fast_train)
+    def parse(train_gt, train_img_dir, info=False, fast_train=False):
+        from skimage.data import imread
+        from scipy.ndimage import zoom
+        if fast_train:
+            train_X = np.zeros((500, im_size, im_size, 1))
+            train_Y = np.zeros((500, coords_size))
+        else:
+            train_X = np.zeros((len(train_gt), im_size, im_size, 1))
+            train_Y = np.zeros((len(train_gt), coords_size))
+        for i, img_name in enumerate(train_gt):
+            if i == 500 and fast_train:
+                break
+            img = imread(train_img_dir+'/'+img_name, as_grey=True)
+            train_Y[i] = train_gt[img_name]
+            for j in range(1, coords_size, 2):
+                train_Y[i][j] *= im_size/img.shape[0]
+            for j in range(0, coords_size, 2):
+                train_Y[i][j] *= im_size/img.shape[1]
+            img = zoom(img, [im_size/img.shape[0], im_size/img.shape[1]])
+            img = (img / 255) 
+            train_X[i,:,:,0] = img
+            del(img)
+            if info and (i+1)%100 == 0:
+                print('Image: ', i+1, end='\r')
+        return train_X, train_Y
+    
+    train_X, train_Y = parse(train_gt, train_img_dir, True, fast_train)
     if model_func == None:
         model = get_model()
     else:
@@ -148,25 +182,34 @@ def train_detector(
         save_weights_only=False)
     if fast_train:
         epochs = 1
-        model.fit(train_X, train_Y, epochs=epochs, batch_size=100)
+        model.fit(train_X, train_Y, epochs=epochs, batch_size=150)
     else:
         epochs = 100
         try:
-            model.fit(train_X, train_Y, epochs=epochs, batch_size=100, callbacks=[checkpoint], validation_split=(1/6))
+            model.fit(train_X, train_Y, epochs=epochs, batch_size=150, callbacks=[checkpoint], validation_split=(1/6))
         except KeyboardInterrupt:
             print('\nTraining interrupted')
-        return model
+    return model
 
 
 def detect(model, test_img_dir):
     from os import listdir
     from skimage.data import imread
     from scipy.ndimage import zoom
-    data, gt_M, gt_D, sizes = parse(test_img_dir)
+    img_list = listdir(test_img_dir)
+    data = np.zeros((len(img_list), im_size, im_size, 1))
+    sizes = []
+    for i, img_name in enumerate(img_list):
+        img = imread(test_img_dir+'/'+img_name, as_grey=True)
+        sizes.append([img_name, img.shape])
+        img = zoom(img, [im_size/img.shape[0], im_size/img.shape[1]])
+        img = (img / 255)
+        data[i,:,:,0] = img
+        del(img)
+        if(i+1)%100 == 0:
+            print('Image: ', i+1, end='\r')
     points = model.predict(data, 100, 1)
     ans = {}
-    points *= gt_D
-    points += gt_M
     for i in range(len(points)):
         for j in range(1, coords_size, 2):
             points[i][j] *= sizes[i][1][0]/im_size
