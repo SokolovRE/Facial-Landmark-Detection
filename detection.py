@@ -81,7 +81,9 @@ def parse(train_img_dir, train_gt=None, fast_train=False):
     img_D = np.zeros((im_size, im_size))
     if train_gt != None:
         train_Y = np.zeros((data_len, coords_size))
-        gt_M = np.zeros(coords_size)
+        global gt_M 
+        gt_M = np.zeros(coords_size) 
+        global gt_D 
         gt_D = np.zeros(coords_size)
     else:
         sizes = []
@@ -104,19 +106,19 @@ def parse(train_img_dir, train_gt=None, fast_train=False):
         img_D += img**2
         train_X[i,:,:,0] = img
         del(img)
-        if (i+1)%100 == 0:
+        if (i+1)%10 == 0:
             print('Parsing image: ', i+1, end='\r')
-        if train_gt != None:
-            gt_M /= data_len
-            gt_D /= data_len
-            gt_D -= gt_M**2
-            train_Y -= gt_M
-            train_Y /= gt_D
-        img_M /= data_len
-        img_D /= data_len
-        img_D -= img_M**2
-        train_X[:,:,:,0] -= img_M
-        train_X[:,:,:,0] /= img_D
+    if train_gt != None:
+        gt_M /= data_len
+        gt_D /= data_len
+        gt_D -= gt_M**2
+        train_Y -= gt_M
+        train_Y /= gt_D
+    img_M /= data_len
+    img_D /= data_len
+    img_D -= img_M**2
+    train_X[:,:,:,0] -= img_M
+    train_X[:,:,:,0] /= img_D
     if train_gt != None:
         return train_X, train_Y
     else:
