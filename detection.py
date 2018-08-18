@@ -31,50 +31,6 @@ from keras.layers import (Input, concatenate, Conv2D, MaxPooling2D,
                           Flatten, Dense, merge, Dropout)
 from keras.optimizers import Adam
 
-def first_model():
-    inputs = Input(shape=(im_size, im_size, 1))
-    conv = Conv2D(filters=256, kernel_size=(3,3), padding='same')(inputs)
-    batchnorm = BatchNormalization()(conv)
-    relu = Activation('relu')(batchnorm)
-    
-    conv = Conv2D(filters=128, kernel_size=(3,3), padding='same')(relu)
-    batchnorm = BatchNormalization()(conv)
-    relu = Activation('relu')(batchnorm)
-    maxpool = MaxPooling2D()(relu)
-    
-    conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(maxpool)
-    batchnorm = BatchNormalization()(conv)
-    relu = Activation('relu')(batchnorm)
-    
-    conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(relu)
-    batchnorm = BatchNormalization()(conv)
-    relu = Activation('relu')(batchnorm)
-    
-    conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(relu)
-    batchnorm = BatchNormalization()(conv)
-    relu = Activation('relu')(batchnorm)
-    maxpool = MaxPooling2D()(relu)
-    
-    conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(maxpool)
-    batchnorm = BatchNormalization()(conv)
-    relu = Activation('relu')(batchnorm)
-    
-    conv = Conv2D(filters=64, kernel_size=(3,3), padding='same')(relu)
-    batchnorm = BatchNormalization()(conv)
-    relu = Activation('relu')(batchnorm)
-    maxpool = MaxPooling2D()(relu)
-    
-    conv = Conv2D(filters=32, kernel_size=(3,3), padding='same')(maxpool)
-    batchnorm = BatchNormalization()(conv)
-    relu = Activation('relu')(batchnorm)
-    
-    flatten = Flatten()(relu)
-    predictions = Dense(coords_size, activation=None)(flatten)
-    
-    model = Model(inputs=inputs, outputs=predictions)
-    model.compile(optimizer='rmsprop', loss='mean_squared_error')
-    return model
-
 
 def get_model():
     inputs = Input(shape=(im_size, im_size, 1))
@@ -182,7 +138,7 @@ def train_detector(
         save_weights_only=False)
     if fast_train:
         epochs = 1
-        model.fit(train_X, train_Y, epochs=epochs, batch_size=150)
+        #model.fit(train_X, train_Y, epochs=epochs, batch_size=150)
     else:
         epochs = 100
         try:
@@ -197,25 +153,40 @@ def detect(model, test_img_dir):
     from skimage.data import imread
     from scipy.ndimage import zoom
     img_list = listdir(test_img_dir)
-    data = np.zeros((len(img_list), im_size, im_size, 1))
+    data = np.zeros((100, im_size, im_size, 1))
     sizes = []
+    k = 0
+    ans = {}
     for i, img_name in enumerate(img_list):
         img = imread(test_img_dir+'/'+img_name, as_grey=True)
         sizes.append([img_name, img.shape])
         img = zoom(img, [im_size/img.shape[0], im_size/img.shape[1]])
         img = (img / 255)
-        data[i,:,:,0] = img
+        data[k,:,:,0] = img
+        k += 1
         del(img)
-        if(i+1)%100 == 0:
-            print('Image: ', i+1, end='\r')
-    points = model.predict(data, 100, 1)
-    ans = {}
-    for i in range(len(points)):
-        for j in range(1, coords_size, 2):
-            points[i][j] *= sizes[i][1][0]/im_size
-            points[i][j] = int(points[i][j])
-        for j in range(0, coords_size, 2):
-            points[i][j] *= sizes[i][1][1]/im_size
-            points[i][j] = int(points[i][j])
-        ans[sizes[i][0]] = points[i]
+        if (i+1)%100 == 0:
+            points = model.predict(data, 1)
+            for i in range(len(points)):
+                for j in range(1, coords_size, 2):
+                    points[i][j] *= sizes[i][1][0]/im_size
+                    points[i][j] = int(points[i][j])
+                for j in range(0, coords_size, 2):
+                    points[i][j] *= sizes[i][1][1]/im_size
+                    points[i][j] = int(points[i][j])
+                ans[sizes[i][0]] = points[i]
+            sizes = []
+            k = 0
+            data = np.zeros((100, im_size, im_size, 1))
+    if k != 0:
+        data = data[:k,:,:,:]
+        points = model.predict(data, 1)
+        for i in range(len(points)):
+            for j in range(1, coords_size, 2):
+                points[i][j] *= sizes[i][1][0]/im_size
+                points[i][j] = int(points[i][j])
+            for j in range(0, coords_size, 2):
+                points[i][j] *= sizes[i][1][1]/im_size
+                points[i][j] = int(points[i][j])
+            ans[sizes[i][0]] = points[i]
     return ans
