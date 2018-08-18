@@ -138,7 +138,7 @@ def train_detector(
         save_weights_only=False)
     if fast_train:
         epochs = 1
-        #model.fit(train_X, train_Y, epochs=epochs, batch_size=150)
+        model.fit(train_X, train_Y, epochs=epochs, batch_size=150)
     else:
         epochs = 100
         try:
@@ -166,7 +166,8 @@ def detect(model, test_img_dir):
         k += 1
         del(img)
         if (i+1)%100 == 0:
-            points = model.predict(data, 1)
+            print((i+1), ' images')
+            points = model.predict(data, verbose=1)
             for i in range(len(points)):
                 for j in range(1, coords_size, 2):
                     points[i][j] *= sizes[i][1][0]/im_size
@@ -180,7 +181,7 @@ def detect(model, test_img_dir):
             data = np.zeros((100, im_size, im_size, 1))
     if k != 0:
         data = data[:k,:,:,:]
-        points = model.predict(data, 1)
+        points = model.predict(data, verbose=1)
         for i in range(len(points)):
             for j in range(1, coords_size, 2):
                 points[i][j] *= sizes[i][1][0]/im_size
