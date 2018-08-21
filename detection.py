@@ -4,7 +4,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 
 train_dir = '00_input/train'
-im_size = 160
+im_size = 140
 coords_size = 28
 
 def read_csv(filename):
@@ -79,7 +79,12 @@ def get_model():
     relu = Activation('relu')(conv)
     batchnorm = BatchNormalization()(relu)
     
-    dropout = Dropout(0.5)(batchnorm)
+    conv = Conv2D(filters=512, kernel_size=(3,3), padding='same')(batchnorm)
+    relu = Activation('relu')(conv)
+    batchnorm = BatchNormalization()(relu)
+    maxpool = MaxPooling2D()(batchnorm)
+    
+    dropout = Dropout(0.5)(maxpool)
     
     flatten = Flatten()(dropout)
     predictions = Dense(coords_size, activation=None)(flatten)
@@ -115,7 +120,7 @@ def train_detector(
             for j in range(0, coords_size, 2):
                 train_Y[i][j] *= im_size/img.shape[1]
             img = zoom(img, [im_size/img.shape[0], im_size/img.shape[1]])
-            img = (img / 255) 
+            img = (img / 255)
             train_X[i,:,:,0] = img
             del(img)
             if info and (i+1)%100 == 0:
@@ -138,7 +143,7 @@ def train_detector(
         save_weights_only=False)
     if fast_train:
         epochs = 1
-        model.fit(train_X, train_Y, epochs=epochs, batch_size=150)
+        model.fit(train_X, train_Y, epochs=epochs, batch_size=40)
     else:
         epochs = 100
         try:
@@ -153,7 +158,7 @@ def detect(model, test_img_dir):
     from skimage.data import imread
     from scipy.ndimage import zoom
     img_list = listdir(test_img_dir)
-    data = np.zeros((100, im_size, im_size, 1))
+    data = np.zeros((40, im_size, im_size, 1))
     sizes = []
     k = 0
     ans = {}
@@ -165,7 +170,7 @@ def detect(model, test_img_dir):
         data[k,:,:,0] = img
         k += 1
         del(img)
-        if (i+1)%100 == 0:
+        if (i+1)%40 == 0:
             print((i+1), ' images')
             points = model.predict(data, verbose=1)
             for i in range(len(points)):
@@ -178,7 +183,7 @@ def detect(model, test_img_dir):
                 ans[sizes[i][0]] = points[i]
             sizes = []
             k = 0
-            data = np.zeros((100, im_size, im_size, 1))
+            data = np.zeros((40, im_size, im_size, 1))
     if k != 0:
         data = data[:k,:,:,:]
         points = model.predict(data, verbose=1)
